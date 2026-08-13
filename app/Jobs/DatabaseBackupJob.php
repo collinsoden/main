@@ -778,14 +778,14 @@ class DatabaseBackupJob implements ShouldBeEncrypted, ShouldQueue
             $escapedSecret = escapeshellarg($secret);
             $escapedBackupLocation = escapeshellarg($this->backup_location);
             $escapedS3Destination = escapeshellarg("temporary/{$bucket}{$this->backup_dir}/");
-            $resolveOptions = collect(SafeWebhookUrl::minioClientResolveOptions($endpoint))
+            $resolveOptions = collect(SafeWebhookUrl::minioClientResolveOptions($endpoint, $this->s3->trustedInternalHosts()))
                 ->map(fn (string $resolveOption): string => '--resolve '.escapeshellarg($resolveOption))
                 ->implode(' ');
             $resolveOptions = $resolveOptions === '' ? '' : ' '.$resolveOptions;
 
             $commands[] = "docker exec backup-of-{$this->backup_log_uuid} mc alias set{$resolveOptions} temporary {$escapedEndpoint} {$escapedKey} {$escapedSecret}";
             $commands[] = "docker exec backup-of-{$this->backup_log_uuid} mc cp {$escapedBackupLocation} {$escapedS3Destination}";
-            instant_remote_process($commands, $this->server, true, false, null, disableMultiplexing: true);
+            instant_remote_process($commands, $this->server, true, false, $this->timeout, disableMultiplexing: true);
 
             $this->s3_uploaded = true;
         } catch (Throwable $e) {
